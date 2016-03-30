@@ -1,0 +1,806 @@
+begin_problem(formal_model).
+
+list_of_descriptions.
+name({*SPASS for Ceremony*}).
+author({*Taciane*}).
+status(satisfiable).
+description({* Logic Model for Security Ceremonies *}).
+end_of_list.
+
+list_of_symbols.
+functions[
+
+(sent,3), %(sender, receiver, message)
+(pair,2), %"concatenate"
+(encr,2),  %(message, key)
+(hash,1), %function applied to a message for Fabricate!
+(int,1), %interface
+(net,1), %network
+
+%Ceremony-specific constants -- varies for each ceremory
+(a,0),
+(b,0),
+(c,0),
+(m1,0),
+(m2,0),
+(m3,0),
+(m4,0),
+(m5,0),
+(m6,0),
+(dy,0),
+(da1,0),
+(da2,0),
+(key,0)
+
+].
+
+predicates[
+(Agent,1),
+(Honest,1),
+(Attacker,1),
+(Message,1),
+(Function,1),
+%(Human,1),
+%(NotHuman,1),
+(Initiator,2),
+(WasBlocked,2), %receiver, message
+(Knows,2), %(agent, knowledge)
+(NotSpoofed,1),
+
+
+%Attacker types
+(DY,1), %Dolev-Yao (all capabilities included by default)
+(DA,1), %Distributed Attacker - identifier - SHARE
+%(DA_DoesNotShare,1), %DA identifier when does not share
+(MA,1), %Multi-Attacker - identifier
+
+%Security concertina layers
+(L3_N,1), %safe model
+(L3_E,2), %eavesdrop - feasible
+(L3_B,2), %block - feasible
+(L3_S,2), %spoof - only if device left unblocked and unattended
+(L3_I,2), %initiate - same condition as spoof
+(L3_C,2), %crypto - same condition as spoof[2]
+(L3_R,2), %re-order - (!?)
+(L3_F,2), %fabricate - same condition as spoof[3]
+
+(L2_N,1),
+(L2_E,2),
+(L2_B,2),
+(L2_S,2),
+(L2_I,2),
+(L2_C,2),
+(L2_R,2),
+(L2_F,2),
+
+%DY capabilities
+(L1_E,2),
+(L1_B,2),
+(L1_S,2),
+(L1_I,2),
+(L1_C,2),
+(L1_R,2),
+(L1_F,2)
+
+].
+
+end_of_list.
+
+list_of_formulae(axioms).
+
+%Atomic Break Down (A) - UNIVERSAL
+formula( forall( [xa, xm1, xm2],
+	implies(
+		and(
+			Agent(xa),
+			Message(xm1),
+			Message(xm2),
+			Knows(xa,pair(xm1,xm2))
+		),
+		and(Knows(xa, xm1),Knows(xa, xm2))
+	)),
+Atomic_break_down).
+
+
+%Concatenate - UNIVERSAL
+formula( forall( [xa, xm1, xm2],
+	implies(
+		and(
+			Agent(xa),
+			Knows(xa, xm1),
+			Knows(xa, xm2)
+		),
+		Knows(xa,pair(xm1,xm2)) %new message
+	)),
+Concatenate).
+
+%%%%% Communication %%%%%%%%%%%
+
+%Safe - no threat (N)
+formula( forall([xa, xb, xm],
+	implies( % sending xm successfully over L3 securely
+		and(
+			Agent(xa),
+			Agent(xb),
+			Message(xm),
+			%Knows(xa, xm),
+			L3_N(sent(xa,xb,xm))
+		),
+		and(
+			Knows(xb, xm),
+			Honest(xa)
+		)
+	)),
+Safe_L3).
+
+
+%Safe - no threat (N) envolving the device
+formula( forall([xa, xb, xm],
+	implies( % sending xm successfully over L2 securely
+		and(
+			Agent(xa),
+			Agent(xb),
+			Message(xm),
+			%Knows(xa, xm),
+			L2_N(sent(xa,xb,xm))
+		),
+		and(
+			Knows(xb, xm),
+			Honest(xa)
+		)
+	)),
+Safe_L2).
+
+
+%Eavesdrop (E) for layer L3
+formula( forall([xa, xb, xatt, xm],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			DA(xatt),
+			Message(xm),
+			%Knows(xa, xm),
+			L3_E(sent(xa,xb,xm),xatt)
+		),
+		and(
+			Knows(xb, xm),
+			Knows(xatt, xm),
+			Honest(xa),
+			Initiator(xa,xm)
+		)
+	)),
+Eavesdrop_L3).
+
+
+%Eavesdrop (E) for layer L2
+formula( forall([xa, xb, xatt, xm],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			Message(xm),
+			%Knows(xa, xm),
+			L2_E(sent(xa,xb,xm),xatt)
+		),
+		and(
+			Knows(xb, xm),
+			Knows(xatt, xm),
+			Honest(xa),
+			Initiator(xa,xm)
+		)
+	)),
+Eavesdrop_L2).
+
+
+%Eavesdrop (E) for layer L1
+formula( forall([xa, xb, xatt, xm],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			Message(xm),
+			%Knows(xa, xm),
+			L1_E(sent(xa,xb,xm),xatt)
+		),
+		and(
+			Knows(xb, xm),
+			Knows(xatt, xm),
+			Honest(xa),
+			Initiator(xa,xm)
+		)
+	)),
+Eavesdrop_L1).
+
+
+%Block (B) for layer L3
+formula( forall([xa, xb, xatt, xm],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			DA(xatt),
+			Message(xm),
+%			Knows(xa, xm),
+			L3_B(sent(xa,xb,xm),xatt)
+		),
+		and(
+			WasBlocked(xb, xm),
+			Knows(xatt,xm)
+		)
+	)),
+Block_L3).
+
+
+%Block (B) for layer L2
+formula( forall([xa, xb, xatt, xm],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			Message(xm),
+%			Knows(xa, xm),
+			L2_B(sent(xa,xb,xm),xatt)
+		),
+		and(
+			WasBlocked(xb, xm),
+			Knows(xatt,xm)
+		)
+	)),
+Block_L2).
+
+
+%Block (B) for layer L1
+formula( forall([xa, xb, xatt, xm],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			Message(xm),
+%			Knows(xa, xm),
+			L1_B(sent(xa,xb,xm),xatt)
+		),
+		and(
+			WasBlocked(xb, xm),
+			Knows(xatt,xm)
+		)
+	)),
+Block_L1).
+
+
+%Spoof (S) for layer L3
+formula( forall([xa, xb, xm, xatt],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			DA(xatt),
+			Message(xm),
+			Knows(xatt,xm)
+		),
+		and(
+			L3_S(sent(xa,xb,xm), xatt),
+			Knows(xb,xm),
+			Initiator(xatt,xm)
+		)
+	)),
+Spoof_L3).
+
+
+%Spoof (S) for layer L2
+formula( forall([xa, xb, xm, xatt],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			Message(xm),
+			Knows(xatt,xm)
+		),
+		and(
+			L2_S(sent(xa,xb,xm), xatt),
+			Knows(xb,xm),
+			Initiator(xatt,xm)
+		)
+	)),
+Spoof_L2).
+
+
+%Spoof (S) for layer L1
+formula( forall([xa, xb, xm, xatt],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			Message(xm),
+			Knows(xatt,xm)
+		),
+		and(
+			L1_S(sent(xa,xb,xm), xatt),
+			Knows(xb,xm),
+			Initiator(xatt,xm)
+		)
+	)),
+Spoof_L1).
+
+
+%Initiate (I) for layer L3
+ formula( forall ([xatt, xb, xm],
+	implies(
+		and(
+			Attacker(xatt),
+			DA(xatt),
+			Agent(xb),
+			Message(xm),
+			Knows(xatt, xm)
+		),
+		and(
+			L3_I(sent(xatt, xb, xm), xatt),
+			Knows(xb,xm),
+			Initiator(xatt,xm)
+		)
+	)),
+Initiate_L3).
+
+
+%Initiate (I) for layer L2
+ formula( forall ([xatt, xb, xm],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xb),
+			Message(xm),
+			Knows(xatt, xm)
+		),
+		and(
+			L2_I(sent(xatt, xb, xm), xatt),
+			Knows(xb,xm),
+			Initiator(xatt,xm)
+		)
+	)),
+Initiate_L2).
+
+
+%Initiate (I) for layer L1
+ formula( forall ([xatt, xb, xm],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xb),
+			Message(xm),
+			Knows(xatt, xm)
+		),
+		and(
+			L1_I(sent(xatt, xb, xm), xatt),
+			Knows(xb,xm),
+			Initiator(xatt,xm)
+		)
+	)),
+Initiate_L1).
+
+
+%Crypto (C) for layer L3
+formula( forall([xa, xb, xatt, xm, xkey],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			DA(xatt),
+			Message(xm),
+			L3_C(sent(xa,xb,encr(xm,xkey)),xatt),
+			Knows(xatt,xkey)
+		),
+		Knows(xatt, xm)
+	)),
+Crypto_L3).
+
+
+%Crypto (C) for layer L2
+formula( forall([xa, xb, xatt, xm, xkey],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			Message(xm),
+			L2_C(sent(xa,xb,encr(xm,xkey)),xatt),
+			Knows(xatt,xkey)
+		),
+		Knows(xatt, xm)
+	)),
+Crypto_L2).
+
+
+%Crypto (C) for layer L1
+formula( forall([xa, xb, xatt, xm, xkey],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			Message(xm),
+			L1_C(sent(xa,xb,encr(xm,xkey)),xatt),
+			Knows(xatt,xkey)
+		),
+		Knows(xatt, xm)
+	)),
+Crypto_L1).
+
+
+%ReOrder (R) for layer L3
+ formula( forall ([xatt, xa, xb, xm1, xm2],
+	implies(
+		and(
+			Attacker(xatt),
+			DA(xatt),
+			Agent(xa),
+			Agent(xb),
+			Message(xm1),
+			Message(xm2),
+%			Knows(xa, xm1),
+%			Knows(xa, xm2),
+			L3_R(sent(xa, xb, pair(xm1,xm2)), xatt)
+		),
+		and(
+			Knows(xatt,xm1),
+			Knows(xatt,xm2),
+			Knows(xb, pair(xm2, xm1))
+		)
+	)),
+ReOrder_L3).
+
+
+%ReOrder (R) for layer L2
+ formula( forall ([xatt, xa, xb, xm1, xm2],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xa),
+			Agent(xb),
+			Message(xm1),
+			Message(xm2),
+%			Knows(xa, xm1),
+%			Knows(xa, xm2),
+			L2_R(sent(xa, xb, pair(xm1,xm2)), xatt)
+		),
+		and(
+			Knows(xatt,xm1),
+			Knows(xatt,xm2),
+			Knows(xb, pair(xm2, xm1))
+		)
+	)),
+ReOrder_L2).
+
+
+%ReOrder (R) for layer L1
+ formula( forall ([xatt, xa, xb, xm1, xm2],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xa),
+			Agent(xb),
+			Message(xm1),
+			Message(xm2),
+%			Knows(xa, xm1),
+%			Knows(xa, xm2),
+			L1_R(sent(xa, xb, pair(xm1,xm2)), xatt)
+		),
+		and(
+			Knows(xatt,xm1),
+			Knows(xatt,xm2),
+			Knows(xb, pair(xm2, xm1))
+		)
+	)),
+ReOrder_L1).
+
+
+%Fabricate (F) for layer L3
+formula( forall([xa, xb, xatt, xm],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			DA(xatt),
+			Message(xm),
+			Function(hash(xm)),
+			L3_F(sent(xa,xb,xm),xatt)
+		),
+		Knows(xatt, hash(xm))
+	)),
+Fabricate_L3).
+
+
+%Fabricate (F) for layer L2
+formula( forall([xa, xb, xatt, xm],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			Message(xm),
+			Function(hash(xm)),
+			L2_F(sent(xa,xb,xm),xatt)
+		),
+		Knows(xatt, hash(xm))
+	)),
+Fabricate_L2).
+
+%Fabricate (F) for layer L1
+formula( forall([xa, xb, xatt, xm],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Attacker(xatt),
+			Message(xm),
+			Function(hash(xm)),
+			L1_F(sent(xa,xb,xm),xatt)
+		),
+		Knows(xatt, hash(xm))
+	)),
+Fabricate_L1).
+
+
+formula(forall([xatt],
+	implies(
+		Attacker(xatt),
+		Agent(xatt)
+	)),
+Attackers_are_Agents).
+
+
+formula(forall([x,xb,xm,xatt],
+	implies(
+		and(
+			Agent(x),
+			Agent(xb),
+			Message(xm),
+			Attacker(xatt),
+			L1_S(sent(x,xb,xm),xatt),
+			Initiator(x,xm),
+			Honest(x)
+		),
+		NotSpoofed(xm)
+	)),
+Message_Not_Spoofed_L1).
+
+%%%%%%%%%%% STEPS!!!!
+
+formula(L3_E(sent(a, int(a), m1), da1), step1).
+
+formula(implies(L3_E(sent(a, int(a), m1),da1), %step1 has occurred
+		L2_N(sent(int(a),net(a), m1))
+		),
+step2).
+
+formula(implies(L2_N(sent(int(a), net(a), m1)), %step2 has occurred
+		and(
+			L1_E(sent(net(a),net(b),m1),dy),
+			L1_B(sent(net(a),net(b),m1),dy),
+			L1_S(sent(net(a),net(b),m1),dy),
+			L1_I(sent(net(a),net(b),m1),dy),
+			L1_C(sent(net(a),net(b),m1),dy),
+			L1_R(sent(net(a),net(b),m1),dy),
+			L1_F(sent(net(a),net(b),m1),dy)
+		)
+	),
+step3).
+
+
+formula(implies(
+		and(
+			L1_E(sent(net(a),net(b),m1),dy),
+			L1_B(sent(net(a),net(b),m1),dy),
+			L1_S(sent(net(a),net(b),m1),dy),
+			L1_I(sent(net(a),net(b),m1),dy),
+			L1_C(sent(net(a),net(b),m1),dy),
+			L1_R(sent(net(a),net(b),m1),dy),
+			L1_F(sent(net(a),net(b),m1),dy)
+		), %step 3 has occurred
+		and(
+			L1_E(sent(net(b),net(a),m2),dy),
+			L1_B(sent(net(b),net(a),m2),dy),
+			L1_S(sent(net(b),net(a),m2),dy),
+			L1_I(sent(net(b),net(a),m2),dy),
+			L1_C(sent(net(b),net(a),m2),dy),
+			L1_R(sent(net(b),net(a),m2),dy),
+			L1_F(sent(net(b),net(a),m2),dy)
+		)
+	),
+step4).
+
+
+formula(implies(
+		and(
+			L1_E(sent(net(b),net(a),m2),dy),
+			L1_B(sent(net(b),net(a),m2),dy),
+			L1_S(sent(net(b),net(a),m2),dy),
+			L1_I(sent(net(b),net(a),m2),dy),
+			L1_C(sent(net(b),net(a),m2),dy),
+			L1_R(sent(net(b),net(a),m2),dy),
+			L1_F(sent(net(b),net(a),m2),dy)
+		), %step4 has occurred
+		L2_N(sent(net(a), int(a), m2))
+	),
+step5).
+
+
+formula(implies(
+		L2_N(sent(net(a), int(a), m2)), %step5 has occurred
+		L3_E(sent(int(a), a, m2),da1)
+	),
+step6).
+
+formula(Agent(a),agent_A).
+formula(Agent(int(a)),agent_intA).
+formula(Agent(net(a)),agent_netA).
+formula(Agent(net(b)),agent_netB).
+formula(Agent(c),agent_C).
+formula(Agent(int(c)),agent_intC).
+
+formula(Message(m1),message_m1).
+formula(Message(m2),message_m2).
+formula(Message(m3),message_m3).
+formula(Message(m4),message_m4).
+formula(Message(m5),message_m5).
+formula(Message(m6),message_m6).
+
+
+formula(Attacker(dy),Attacker_dy).
+formula(DY(dy),DY_dy).
+
+formula(Attacker(da1),Attacker_da1).
+formula(DA(da1),DA_da1).
+
+formula(Attacker(da2),Attacker_da2).
+formula(DA(da2),DA_da2).
+
+formula (Knows(dy,m2), dy_spoofs).
+
+formula(Knows(a,pair(m3,m4)),Formula_Pair).
+
+formula(L3_N(sent(a,int(a),m3)),Formula_Safe).
+
+formula(L1_B(sent(net(a),net(b),m3),dy),Formula_Block).
+
+formula(L1_I(sent(dy,net(b),m4),dy),Formula_Initiate).
+
+formula (Knows(dy,m4), dy_initiates).
+
+formula(L3_C(sent(c,int(c),encr(m6,key)),da2), Formula_Crypto).
+
+formula(Knows(da2,key),da_knows_key).
+
+formula(Function(hash(m5)),Function_hash).
+
+formula(L1_F(sent(net(a),net(b),m5),dy), Formula_Fabricate).
+
+
+end_of_list.
+
+
+list_of_formulae(conjectures).
+
+
+%formula(
+%	Knows(dy,hash(m5)),
+%Test_Fabricate).
+%OK
+
+
+%formula(
+%	Knows(da2,m6),
+%Test_Crypto).
+%OK
+
+
+%formula(
+%	and(
+%		Knows(net(b),m4),
+%		Initiator(dy,m4)
+%	),
+%Test_Initiate).
+%OK
+
+
+%formula(
+%	WasBlocked(net(b),m3),
+%Test_Block).
+%OK
+
+
+%formula(
+%	Knows(dy,m3),
+%Test2_Block).
+%OK
+
+
+%formula(
+%	and(
+%		Knows(da1,m3),
+%		Knows(dy,m3)
+%	),
+%Test_Safe).
+%OK - [NAO TEM COMO AFIRMAR]
+
+
+%formula(
+%	and(
+%		not(Knows(da1,m3)),
+%		not(Knows(dy,m3))
+%	),
+%Test2_Safe).
+%OK - [NAO TEM COMO AFIRMAR]
+
+
+%formula(
+%	Knows(dy,m1),
+%Test_Eavesdrop_DY).
+%OK - comentei Eavesdrop
+
+
+%formula(
+%	not(Knows(dy,m1)),
+%Test2_Eavesdrop_DY).
+%OK - comentei Eavesdrop [NAO TEM COMO AFIRMAR]
+
+
+%formula(
+%	Knows(net(a),m2),
+%Test_Spoof_DY).
+%OK!
+
+
+%formula(
+%	NotSpoofed(m1),
+%Test_Not_Spoofed).
+%OK!
+
+
+%formula(
+%	Knows(a,pair(m1,m2)),
+%Test_Concatenate).
+%OK!
+
+
+%formula(
+%	and(
+%		Knows(a,m3),
+%		Knows(a,m4)
+%	),
+%Test_Deconcatenate).
+%OK!
+
+
+%formula(
+%	and(
+%		Knows(int(a),m1),
+%		Knows(net(a),m1),
+%		Knows(net(b),m1),
+%		Knows(dy,m1),
+%		Knows(da1,m1),
+%		Knows(dy,m2),
+%		Knows(int(a),m2),
+%		Knows(net(a),m2),
+%		Knows(net(b),m2),
+%		Knows(da1,m2),
+%		Knows(a,m2)
+%	),
+%Test_Knows).
+%OK!
+
+
+end_of_list.
+
+end_problem.
+
