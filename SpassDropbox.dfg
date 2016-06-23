@@ -1,76 +1,78 @@
 begin_problem(formal_model).
 
 list_of_descriptions.
-name({*SPASS for Ceremony*}).
+name({*SPASS for Dropbox Ceremony*}).
 author({*Taciane*}).
 status(satisfiable).
-description({* Logic Model for Security Ceremonies *}).
+description({* Logic Model for Security Ceremonies *}). 
 end_of_list.
 
 list_of_symbols.
 functions[
 
-(sent,3), %(sender, receiver, message)
-(pair,2), %"concatenate"
-(encr,2),  %(message, key)
-(hash,1), %function applied to a message for Fabricate!
-(int,1), %interface
-(net,1), %network
-
-%Ceremony-specific constants -- varies for each ceremory
-(a,0),
-(b,0),
-(c,0),
-(m1,0),
-(m2,0),
-(m3,0),
-(m4,0),
-(m5,0),
-(m6,0),
-(dy,0),
+%Ceremony-specific constants, varies for each ceremory
+(uc,0),
+(ds,0),
+(up,0),
+(dropbox_url,0),
+(public_dropbox,0),
+(dropbox_page,0),
+(sign_in,0),
+(sign_in_page,0),
+(email,0),
+(password,0),
+(2_step_verification,0),
+(auth_code_msg,0),
+(auth_code,0),
+(user_page,0),
 (da1,0),
 (da2,0),
-(key,0)
+(dy,0),
+(ma1,0),
+(da3,0),
+
+(sent,3), %(sender, receiver, message)
+(pair,2),
+(encr,2), %(message, key)
+(hash,1)
 
 ].
 
 predicates[
-(Agent,1),
-(Honest,1),
+(Agent,1), 
+(L3_Sender,3), %(sender, receiver, message)
+(L2_Sender,3), 
+(L1_Sender,3), 
 (Attacker,1),
-(Message,1),
-(Function,1),
-%(Human,1),
-%(NotHuman,1),
-(Initiator,2),
-(WasBlocked,2), %receiver, message
+(L1_WasBlocked,3), %(receiver, message, attacker)
+(L2_WasBlocked,3),
 (Knows,2), %(agent, knowledge)
-(NotSpoofed,1),
-
+(KnowsPair,2),
+(KnowsEncr,2),
+(Honest,1), %attackers are not honest
+(Key,1),
+(Function,1),
 
 %Attacker types
-(DY,1), %Dolev-Yao (all capabilities included by default)
-(DA,1), %Distributed Attacker - identifier - SHARE
-%(DA_DoesNotShare,1), %DA identifier when does not share
+(DY,1), %Dolev-Yao  - identifier (all capabilities included by default)
+(DA,1), %Distributed Attacker - identifier
 (MA,1), %Multi-Attacker - identifier
 
 %Security concertina layers
-(L3_N,1), %safe model
 (L3_E,2), %eavesdrop - feasible
 (L3_B,2), %block - feasible
 (L3_S,2), %spoof - only if device left unblocked and unattended
 (L3_I,2), %initiate - same condition as spoof
-(L3_C,2), %crypto - same condition as spoof[2]
-(L3_R,2), %re-order - (!?)
-(L3_F,2), %fabricate - same condition as spoof[3]
+(L3_C,2), %crypto - same condition as spoof
+(L3_O,2), %re-order same condition as spoof
+(L3_F,2), %fabricate - same condition as spoof
 
-(L2_N,1),
 (L2_E,2),
 (L2_B,2),
 (L2_S,2),
 (L2_I,2),
 (L2_C,2),
-(L2_R,2),
+(L2_O,2),
 (L2_F,2),
 
 %DY capabilities
@@ -79,477 +81,862 @@ predicates[
 (L1_S,2),
 (L1_I,2),
 (L1_C,2),
-(L1_R,2),
+(L1_O,2),
 (L1_F,2)
 
 ].
 
 end_of_list.
 
+
 list_of_formulae(axioms).
 
-%Atomic Break Down (A) - UNIVERSAL
-formula( forall( [xa, xm1, xm2],
-	implies(
+%---- Atomic Break Down (A) ------------------------------------------
+
+formula( forall([xa, xm1, xm2],
+	implies( 
 		and(
 			Agent(xa),
-			Message(xm1),
-			Message(xm2),
-			Knows(xa,pair(xm1,xm2))
+			KnowsPair(xa,pair(xm1,xm2))
 		),
-		and(Knows(xa, xm1),Knows(xa, xm2))
+		and(
+			Knows(xa, xm1),
+			Knows(xa, xm2)
+		)
 	)),
-Atomic_break_down).
+Atomic_break_down_pair). 
 
 
-%Concatenate - UNIVERSAL
-formula( forall( [xa, xm1, xm2],
-	implies(
+%---- Concatenate ----------------------------------------------------
+
+formula( forall([xa, xm1, xm2],
+	implies( 
 		and(
 			Agent(xa),
 			Knows(xa, xm1),
 			Knows(xa, xm2)
 		),
-		Knows(xa,pair(xm1,xm2)) %new message
+		KnowsPair(xa,pair(xm1,xm2))
 	)),
-Concatenate).
+Concatenate_pair). 
 
-%%%%% Communication %%%%%%%%%%%
+	
+%---- Communication --------------------------------------------------
 
-%Safe - no threat (N)
-formula( forall([xa, xb, xm],
-	implies( % sending xm successfully over L3 securely
+formula( forall([xa, xm, xkey], 
+	implies(
 		and(
 			Agent(xa),
-			Agent(xb),
-			Message(xm),
-			%Knows(xa, xm),
-			L3_N(sent(xa,xb,xm))
+			Knows(xa,xm),
+			Key(xkey),
+			Knows(xa,xkey)
 		),
-		and(
-			Knows(xb, xm),
-			Honest(xa)
-		)
+		KnowsEncr(xa, encr(xm,xkey))
 	)),
-Safe_L3).
+Encryption).
 
 
-%Safe - no threat (N) envolving the device
-formula( forall([xa, xb, xm],
-	implies( % sending xm successfully over L2 securely
+formula( forall([xa, xm, xkey], 
+	implies(
 		and(
 			Agent(xa),
-			Agent(xb),
-			Message(xm),
-			%Knows(xa, xm),
-			L2_N(sent(xa,xb,xm))
+			Key(xkey),
+			Knows(xa,xkey),
+			KnowsEncr(xa, encr(xm,xkey))
 		),
-		and(
-			Knows(xb, xm),
-			Honest(xa)
-		)
+		Knows(xa,xm)
 	)),
-Safe_L2).
+Decryption).
 
 
-%Eavesdrop (E) for layer L3
-formula( forall([xa, xb, xatt, xm],
+% ---------------------------------------------------------------------
+
+%Eavesdrop
+formula( forall([xa, xb, xatt, xm], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			DA(xatt),
-			Message(xm),
-			%Knows(xa, xm),
+			Knows(xa, xm),
 			L3_E(sent(xa,xb,xm),xatt)
 		),
 		and(
 			Knows(xb, xm),
 			Knows(xatt, xm),
-			Honest(xa),
-			Initiator(xa,xm)
+			L3_Sender(xa,xb,xm)
 		)
 	)),
 Eavesdrop_L3).
 
 
-%Eavesdrop (E) for layer L2
-formula( forall([xa, xb, xatt, xm],
+formula( forall([xa, xb, xatt, xm], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			Message(xm),
-			%Knows(xa, xm),
+			KnowsPair(xa, xm),
+			L3_E(sent(xa,xb,xm),xatt)
+		),
+		and(
+			KnowsPair(xb, xm),
+			KnowsPair(xatt, xm),
+			L3_Sender(xa,xb,xm)
+		)
+	)),
+Eavesdrop_L3_Pair).
+
+
+formula( forall([xa, xb, xatt, xm], 
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			Knows(xa, xm),
 			L2_E(sent(xa,xb,xm),xatt)
 		),
 		and(
 			Knows(xb, xm),
 			Knows(xatt, xm),
-			Honest(xa),
-			Initiator(xa,xm)
+			L2_Sender(xa,xb,xm)
 		)
 	)),
 Eavesdrop_L2).
 
 
-%Eavesdrop (E) for layer L1
-formula( forall([xa, xb, xatt, xm],
+formula( forall([xa, xb, xatt, xm], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			Message(xm),
-			%Knows(xa, xm),
+			KnowsPair(xa, xm),
+			L2_E(sent(xa,xb,xm),xatt)
+		),
+		and(
+			KnowsPair(xb, xm),
+			KnowsPair(xatt, xm),
+			L2_Sender(xa,xb,xm)
+		)
+	)),
+Eavesdrop_L2_Pair).
+
+
+formula( forall([xa, xb, xatt, xm], 
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			Knows(xa, xm), 
 			L1_E(sent(xa,xb,xm),xatt)
 		),
 		and(
 			Knows(xb, xm),
 			Knows(xatt, xm),
-			Honest(xa),
-			Initiator(xa,xm)
+			L1_Sender(xa,xb,xm)
 		)
 	)),
 Eavesdrop_L1).
 
 
-%Block (B) for layer L3
-formula( forall([xa, xb, xatt, xm],
+formula( forall([xa, xb, xatt, xm], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			DA(xatt),
-			Message(xm),
-%			Knows(xa, xm),
-			L3_B(sent(xa,xb,xm),xatt)
+			KnowsPair(xa, xm), 
+			L1_E(sent(xa,xb,xm),xatt)
 		),
 		and(
-			WasBlocked(xb, xm),
-			Knows(xatt,xm)
+			KnowsPair(xb, xm),
+			KnowsPair(xatt, xm),
+			L1_Sender(xa,xb,xm)
 		)
 	)),
-Block_L3).
+Eavesdrop_L1_Pair).
 
 
-%Block (B) for layer L2
-formula( forall([xa, xb, xatt, xm],
+formula( forall([xa, xb, xatt, xm, xkey], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			Message(xm),
-%			Knows(xa, xm),
-			L2_B(sent(xa,xb,xm),xatt)
+			KnowsEncr(xa,encr(xm,xkey)),
+			L1_E(sent(xa,xb,encr(xm,xkey)),xatt)
 		),
 		and(
-			WasBlocked(xb, xm),
-			Knows(xatt,xm)
+			KnowsEncr(xb,encr(xm,xkey)),
+			KnowsEncr(xatt,encr(xm,xkey)),
+			L1_Sender(xa,xb,encr(xm,xkey))
+		)
+	)),
+Eavesdrop_L1_Encr).
+
+
+% --------------------------------------------------------------------------
+
+%Block
+
+formula( forall([xa, xb, xatt, xm], 
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			Knows(xa, xm),
+			L2_B(sent(xa,xb,xm),xatt)
+		),
+		and(	
+			L2_WasBlocked(xb, xm, xatt),
+			Knows(xatt,xm),
+			L2_Sender(xa,xb,xm)
 		)
 	)),
 Block_L2).
 
 
-%Block (B) for layer L1
-formula( forall([xa, xb, xatt, xm],
+formula( forall([xa, xb, xatt, xm], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			Message(xm),
-%			Knows(xa, xm),
+			KnowsPair(xa, xm),
+			L2_B(sent(xa,xb,xm),xatt)
+		),
+		and(	
+			L2_WasBlocked(xb, xm, xatt),
+			KnowsPair(xatt,xm),
+			L2_Sender(xa,xb,xm)
+		)
+	)),
+Block_L2_Pair).
+
+
+formula( forall([xa, xb, xatt, xm], 
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			Knows(xa, xm),
 			L1_B(sent(xa,xb,xm),xatt)
 		),
-		and(
-			WasBlocked(xb, xm),
-			Knows(xatt,xm)
+		and(	
+			L1_WasBlocked(xb, xm, xatt),
+			Knows(xatt,xm),
+			L1_Sender(xa,xb,xm)
 		)
 	)),
 Block_L1).
 
 
-%Spoof (S) for layer L3
+formula( forall([xa, xb, xatt, xm], 
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			KnowsPair(xa, xm),
+			L1_B(sent(xa,xb,xm),xatt)
+		),
+		and(	
+			L1_WasBlocked(xb, xm, xatt),
+			KnowsPair(xatt,xm),
+			L1_Sender(xa,xb,xm)
+		)
+	)),
+Block_L1_Pair).
+
+
+formula( forall([xa, xb, xatt, xm, xkey], 
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			KnowsEncr(xa,encr(xm,xkey)),
+			L1_B(sent(xa,xb,encr(xm,xkey)),xatt)
+		),
+		and(	
+			L1_WasBlocked(xb, encr(xm,xkey), xatt),
+			KnowsEncr(xatt,encr(xm,xkey)),
+			L1_Sender(xa,xb,encr(xm,xkey))
+		)
+	)),
+Block_L1_Encr).
+
+
+% -------------------------------------------------------------------------
+
+%Spoof
 formula( forall([xa, xb, xm, xatt],
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			DA(xatt),
-			Message(xm),
 			Knows(xatt,xm)
 		),
 		and(
 			L3_S(sent(xa,xb,xm), xatt),
 			Knows(xb,xm),
-			Initiator(xatt,xm)
+			L3_Sender(xatt,xb,xm)
 		)
 	)),
 Spoof_L3).
 
 
-%Spoof (S) for layer L2
 formula( forall([xa, xb, xm, xatt],
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			Message(xm),
+			KnowsPair(xatt,xm)
+		),
+		and(
+			L3_S(sent(xa,xb,xm), xatt),
+			KnowsPair(xb,xm),
+			L3_Sender(xatt,xb,xm)
+		)
+	)),
+Spoof_L3_Pair).
+
+
+formula( forall([xa, xb, xm, xatt],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
 			Knows(xatt,xm)
 		),
 		and(
 			L2_S(sent(xa,xb,xm), xatt),
 			Knows(xb,xm),
-			Initiator(xatt,xm)
+			L2_Sender(xatt,xb,xm)
 		)
 	)),
 Spoof_L2).
 
 
-%Spoof (S) for layer L1
 formula( forall([xa, xb, xm, xatt],
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			Message(xm),
+			KnowsPair(xatt,xm)
+		),
+		and(
+			L2_S(sent(xa,xb,xm), xatt),
+			KnowsPair(xb,xm),
+			L2_Sender(xatt,xb,xm)
+		)
+	)),
+Spoof_L2_pair).
+
+
+formula( forall([xa, xb, xm, xatt],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
 			Knows(xatt,xm)
 		),
 		and(
 			L1_S(sent(xa,xb,xm), xatt),
 			Knows(xb,xm),
-			Initiator(xatt,xm)
+			L1_Sender(xatt,xb,xm)
 		)
 	)),
 Spoof_L1).
 
 
-%Initiate (I) for layer L3
- formula( forall ([xatt, xb, xm],
-	implies(
-		and(
-			Attacker(xatt),
-			DA(xatt),
-			Agent(xb),
-			Message(xm),
-			Knows(xatt, xm)
-		),
-		and(
-			L3_I(sent(xatt, xb, xm), xatt),
-			Knows(xb,xm),
-			Initiator(xatt,xm)
-		)
-	)),
-Initiate_L3).
-
-
-%Initiate (I) for layer L2
- formula( forall ([xatt, xb, xm],
-	implies(
-		and(
-			Attacker(xatt),
-			Agent(xb),
-			Message(xm),
-			Knows(xatt, xm)
-		),
-		and(
-			L2_I(sent(xatt, xb, xm), xatt),
-			Knows(xb,xm),
-			Initiator(xatt,xm)
-		)
-	)),
-Initiate_L2).
-
-
-%Initiate (I) for layer L1
- formula( forall ([xatt, xb, xm],
-	implies(
-		and(
-			Attacker(xatt),
-			Agent(xb),
-			Message(xm),
-			Knows(xatt, xm)
-		),
-		and(
-			L1_I(sent(xatt, xb, xm), xatt),
-			Knows(xb,xm),
-			Initiator(xatt,xm)
-		)
-	)),
-Initiate_L1).
-
-
-%Crypto (C) for layer L3
-formula( forall([xa, xb, xatt, xm, xkey],
+formula( forall([xa, xb, xm, xatt],
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			DA(xatt),
-			Message(xm),
-			L3_C(sent(xa,xb,encr(xm,xkey)),xatt),
-			Knows(xatt,xkey)
+			KnowsPair(xatt,xm)
 		),
-		Knows(xatt, xm)
+		and(
+			L1_S(sent(xa,xb,xm), xatt),
+			KnowsPair(xb,xm),
+			L1_Sender(xatt,xb,xm)
+		)
+	)),
+Spoof_L1_Pair).
+
+
+formula( forall([xa, xb, xm, xatt, xkey],
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			KnowsEncr(xatt,encr(xm,xkey))
+		),
+		and(
+			L1_S(sent(xa,xb,encr(xm,xkey)), xatt),
+			KnowsEncr(xb,encr(xm,xkey)),
+			L1_Sender(xatt,xb,encr(xm,xkey))
+		)
+	)),
+Spoof_L1_Encr).
+
+
+% ----------------------------------------------------------------------
+
+%Initiate
+formula( forall ([xatt, xb, xm],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xb),
+			Honest(xb),
+			Knows(xatt, xm)
+		),
+		and(
+			L3_I(sent(xatt, xb, xm),xatt),
+			Knows(xb,xm),
+			L3_Sender(xatt,xb,xm)
+		)
+	)), 
+Initiate_L3).
+
+
+formula( forall ([xatt, xb, xm],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xb),
+			Honest(xb),
+			KnowsPair(xatt, xm)
+		),
+		and(
+			L3_I(sent(xatt, xb, xm),xatt),
+			KnowsPair(xb,xm),
+			L3_Sender(xatt,xb,xm)
+		)
+	)), 
+Initiate_L3_Pair).
+
+
+formula( forall ([xatt, xb, xm],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xb),
+			Honest(xb),
+			Knows(xatt, xm)
+		),
+		and(
+			L2_I(sent(xatt, xb, xm),xatt),
+			Knows(xb,xm),
+			L2_Sender(xatt,xb,xm)
+		)
+	)), 
+Initiate_L2).
+
+
+formula( forall ([xatt, xb, xm],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xb),
+			Honest(xb),
+			KnowsPair(xatt, xm)
+		),
+		and(
+			L2_I(sent(xatt, xb, xm),xatt),
+			KnowsPair(xb,xm),
+			L2_Sender(xatt,xb,xm)
+		)
+	)), 
+Initiate_L2_Pair).
+
+
+formula( forall ([xatt, xb, xm],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xb),
+			Honest(xb),
+			Knows(xatt, xm)
+		),
+		and(
+			L1_I(sent(xatt, xb, xm),xatt),
+			Knows(xb,xm),
+			L1_Sender(xatt,xb,xm)
+		)
+	)), 
+Initiate_L1).
+
+
+formula( forall ([xatt, xb, xm],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xb),
+			Honest(xb),
+			KnowsPair(xatt,xm)
+		),
+		and(
+			L1_I(sent(xatt, xb, xm),xatt),
+			KnowsPair(xb,xm),
+			L1_Sender(xatt,xb,xm)
+		)
+	)), 
+Initiate_L1_Pair).
+
+
+%Initiate (I) for layer L1
+formula( forall ([xatt, xb, xm, xkey],
+	implies(
+		and(
+			Attacker(xatt),
+			Agent(xb),
+			Honest(xb),
+			KnowsEncr(xatt, encr(xm,xkey))
+		),
+		and(
+			L1_I(sent(xatt, xb, encr(xm,xkey)),xatt),
+			KnowsEncr(xb,encr(xm,xkey)),
+			L1_Sender(xatt,xb,encr(xm,xkey))
+		)
+	)), 
+Initiate_L1_Encr).
+
+
+% ------------------------------------------------------------------------
+
+%Crypto - nothing more than Eavesdrop and Decrypt
+
+formula( forall([xa, xb, xatt, xm, xkey], 
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			KnowsEncr(xa,encr(xm,xkey)),
+			Knows(xatt,xkey),
+			Key(xkey),
+			L3_C(sent(xa,xb,encr(xm,xkey)),xatt)
+		),
+		and(
+			Knows(xatt, xm),
+			L3_Sender(xa,xb,xm)
+		)
 	)),
 Crypto_L3).
 
 
-%Crypto (C) for layer L2
-formula( forall([xa, xb, xatt, xm, xkey],
+formula( forall([xa, xb, xatt, xm, xkey], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			Message(xm),
-			L2_C(sent(xa,xb,encr(xm,xkey)),xatt),
-			Knows(xatt,xkey)
+			KnowsEncr(xa,encr(xm,xkey)),
+			KnowsPair(xa,xm),
+			Knows(xatt,xkey),
+			Key(xkey),
+			L3_C(sent(xa,xb,encr(xm,xkey)),xatt)
 		),
-		Knows(xatt, xm)
+		and(
+			Knows(xatt, xm),
+			L3_Sender(xa,xb,xm)
+		)
+	)),
+Crypto_L3_Pair).
+
+
+formula( forall([xa, xb, xatt, xm, xkey], 
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			Knows(xa,encr(xm,xkey)),
+			Knows(xatt,xkey),
+			Key(xkey),
+			L2_C(sent(xa,xb,encr(xm,xkey)),xatt)
+		),
+		and(
+			Knows(xatt, xm),
+			L2_Sender(xa,xb,xm)
+		)
 	)),
 Crypto_L2).
 
 
-%Crypto (C) for layer L1
-formula( forall([xa, xb, xatt, xm, xkey],
+formula( forall([xa, xb, xatt, xm, xkey], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			Message(xm),
-			L1_C(sent(xa,xb,encr(xm,xkey)),xatt),
-			Knows(xatt,xkey)
+			KnowsEncr(xa,encr(xm,xkey)),
+			KnowsPair(xa,xm),
+			Knows(xatt,xkey),
+			Key(xkey),
+			L2_C(sent(xa,xb,encr(xm,xkey)),xatt)
 		),
-		Knows(xatt, xm)
+		and(
+			Knows(xatt, xm),
+			L2_Sender(xa,xb,xm)
+		)
+	)),
+Crypto_L2_Pair).
+
+
+formula( forall([xa, xb, xatt, xm, xkey], 
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			KnowsEncr(xa,encr(xm,xkey)),
+			Knows(xatt,xkey),
+			Key(xkey),
+			L1_C(sent(xa,xb,encr(xm,xkey)),xatt)
+		),
+		and(
+			Knows(xatt, xm),
+			L1_Sender(xa,xb,xm)
+		)
 	)),
 Crypto_L1).
 
 
-%ReOrder (R) for layer L3
- formula( forall ([xatt, xa, xb, xm1, xm2],
+formula( forall([xa, xb, xatt, xm, xkey], 
+	implies(
+		and(
+			Agent(xa),
+			Agent(xb),
+			Honest(xa),
+			Honest(xb),
+			Attacker(xatt),
+			KnowsEncr(xa,encr(xm,xkey)),
+			KnowsPair(xa,xm),
+			Knows(xatt,xkey),
+			Key(xkey),
+			L1_C(sent(xa,xb,encr(xm,xkey)),xatt)
+		),
+		and(
+			Knows(xatt, xm),
+			L1_Sender(xa,xb,xm)
+		)
+	)),
+Crypto_L1_Pair).
+
+
+% ----------------------------------------------------------------------------------------
+
+%ReOrder
+formula( forall ([xatt, xa, xb, xm1, xm2],
 	implies(
 		and(
 			Attacker(xatt),
-			DA(xatt),
 			Agent(xa),
 			Agent(xb),
-			Message(xm1),
-			Message(xm2),
-%			Knows(xa, xm1),
-%			Knows(xa, xm2),
-			L3_R(sent(xa, xb, pair(xm1,xm2)), xatt)
+			Honest(xa),
+			Honest(xb),
+			Knows(xa, xm1),
+			Knows(xa, xm2),
+			L3_O(sent(xa, xb, xm1), xatt),
+			implies(L3_O(sent(xa, xb, xm1), xatt), 
+				L3_O(sent(xa, xb, xm2), xatt))
 		),
 		and(
 			Knows(xatt,xm1),
 			Knows(xatt,xm2),
-			Knows(xb, pair(xm2, xm1))
+			Knows(xb,xm2),
+			implies(Knows(xb, xm2), 
+				Knows(xb, xm1)),
+			L3_Sender(xa,xb,xm1),
+			L3_Sender(xa,xb,xm2)
 		)
 	)),
 ReOrder_L3).
 
 
-%ReOrder (R) for layer L2
- formula( forall ([xatt, xa, xb, xm1, xm2],
+formula( forall ([xatt, xa, xb, xm1, xm2],
 	implies(
 		and(
 			Attacker(xatt),
 			Agent(xa),
 			Agent(xb),
-			Message(xm1),
-			Message(xm2),
-%			Knows(xa, xm1),
-%			Knows(xa, xm2),
-			L2_R(sent(xa, xb, pair(xm1,xm2)), xatt)
+			Honest(xa),
+			Honest(xb),
+			Knows(xa, xm1),
+			Knows(xa, xm2),
+			L2_O(sent(xa, xb, xm1), xatt),
+			implies(L2_O(sent(xa, xb, xm1), xatt), 
+				L2_O(sent(xa, xb, xm2), xatt))
 		),
 		and(
 			Knows(xatt,xm1),
 			Knows(xatt,xm2),
-			Knows(xb, pair(xm2, xm1))
+			Knows(xb,xm2),
+			implies(Knows(xb, xm2), 
+				Knows(xb, xm1)),
+			L2_Sender(xa,xb,xm1),
+			L2_Sender(xa,xb,xm2)
 		)
 	)),
 ReOrder_L2).
 
 
-%ReOrder (R) for layer L1
- formula( forall ([xatt, xa, xb, xm1, xm2],
+formula( forall ([xatt, xa, xb, xm1, xm2],
 	implies(
 		and(
 			Attacker(xatt),
 			Agent(xa),
 			Agent(xb),
-			Message(xm1),
-			Message(xm2),
-%			Knows(xa, xm1),
-%			Knows(xa, xm2),
-			L1_R(sent(xa, xb, pair(xm1,xm2)), xatt)
+			Honest(xa),
+			Honest(xb),
+			Knows(xa, xm1),
+			Knows(xa, xm2),
+			L1_O(sent(xa, xb, xm1), xatt),
+			implies(L1_O(sent(xa, xb, xm1), xatt), 
+				L1_O(sent(xa, xb, xm2), xatt))
 		),
 		and(
 			Knows(xatt,xm1),
 			Knows(xatt,xm2),
-			Knows(xb, pair(xm2, xm1))
+			Knows(xb,xm2),
+			implies(Knows(xb, xm2), 
+				Knows(xb, xm1)),
+			L1_Sender(xa,xb,xm1),
+			L1_Sender(xa,xb,xm2)
 		)
 	)),
 ReOrder_L1).
 
 
-%Fabricate (F) for layer L3
-formula( forall([xa, xb, xatt, xm],
+% ----------------------------------------------------------------------------------------
+
+%Fabricate
+formula( forall([xa, xb, xatt, xm], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			DA(xatt),
-			Message(xm),
+			Knows(xa,xm),
 			Function(hash(xm)),
 			L3_F(sent(xa,xb,xm),xatt)
 		),
-		Knows(xatt, hash(xm))
+		and(
+			L3_Sender(xa,xb,xm),
+			Knows(xatt,xm),
+			Knows(xatt, hash(xm)) 
+		)
 	)),
 Fabricate_L3).
 
 
-%Fabricate (F) for layer L2
-formula( forall([xa, xb, xatt, xm],
+formula( forall([xa, xb, xatt, xm], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			Message(xm),
+			Knows(xa,xm),
 			Function(hash(xm)),
 			L2_F(sent(xa,xb,xm),xatt)
 		),
-		Knows(xatt, hash(xm))
+		and(
+			Knows(xatt, hash(xm)),
+			Knows(xatt,xm),
+			L2_Sender(xa,xb,xm)
+		)
 	)),
 Fabricate_L2).
 
-%Fabricate (F) for layer L1
-formula( forall([xa, xb, xatt, xm],
+
+formula( forall([xa, xb, xatt, xm], 
 	implies(
 		and(
 			Agent(xa),
 			Agent(xb),
+			Honest(xa),
+			Honest(xb),
 			Attacker(xatt),
-			Message(xm),
 			Function(hash(xm)),
 			L1_F(sent(xa,xb,xm),xatt)
 		),
-		Knows(xatt, hash(xm))
+		and(
+			Knows(xatt, hash(xm)),
+			Knows(xatt,xm),
+			L1_Sender(xa,xb,xm)
+		)
 	)),
 Fabricate_L1).
 
+% ------------------------------------------------------------------------------
 
 formula(forall([xatt],
 	implies(
@@ -559,248 +946,492 @@ formula(forall([xatt],
 Attackers_are_Agents).
 
 
-formula(forall([x,xb,xm,xatt],
+formula(Agent(uc),agent_uc).
+formula(Honest(uc),honest_uc).
+formula(Agent(ds),agent_ds).
+formula(Honest(ds),honest_ds).
+formula(Agent(up),agent_up).
+formula(Honest(up),honest_up).
+formula(Key(public_dropbox),key_public_dropbox).
+
+
+formula(Knows(uc,dropbox_url),agent_uc_knows_dropbox_url).
+formula(Knows(uc,public_dropbox),agent_uc_knows_key_public_dropbox).
+formula(Knows(ds,dropbox_page),agent_ds_knows_dropbox_page).
+formula(Knows(ds,public_dropbox),agent_ds_knows_key_public_dropbox).
+formula(Knows(uc,sign_in),agent_uc_knows_sign_in).
+formula(Knows(ds,sign_in_page),agent_ds_knows_sign_in_page).
+formula(KnowsPair(uc,pair(email,password)),agent_uc_knows_pair_email_and_password).
+formula(Knows(ds,2_step_verification),agent_ds_knows_2_step_verification).
+formula(Knows(ds,auth_code_msg),agent_ds_knows_auth_code_msg).
+formula(Knows(uc,auth_code),agent_uc_knows_auth_code).
+formula(Knows(ds,user_page),agent_ds_knows_user_page).
+
+formula(Attacker(da1),attacker_da1).
+formula(DA(da1),DA_da1).
+formula(Attacker(da2),attacker_da2).
+formula(DA(da2),DA_da2).
+formula(Attacker(dy),attacker_dy).
+formula(DY(dy),DY_dy).
+formula(Attacker(ma1),attacker_ma1).
+formula(MA(ma1),Ma_ma1).
+formula(Attacker(da3),attacker_da3).
+formula(DA(da3),DA_da3).
+
+formula(
+	and(
+		L3_E(sent(uc,ds,dropbox_url),da1),
+		L3_B(sent(uc,ds,dropbox_url),da1)
+	),
+step1).
+
+formula(
 	implies(
 		and(
-			Agent(x),
-			Agent(xb),
-			Message(xm),
-			Attacker(xatt),
-			L1_S(sent(x,xb,xm),xatt),
-			Initiator(x,xm),
-			Honest(x)
+			L3_E(sent(uc,ds,dropbox_url),da1),
+			L3_B(sent(uc,ds,dropbox_url),da1)
 		),
-		NotSpoofed(xm)
-	)),
-Message_Not_Spoofed_L1).
-
-%%%%%%%%%%% STEPS!!!!
-
-formula(L3_E(sent(a, int(a), m1), da1), step1).
-
-formula(implies(L3_E(sent(a, int(a), m1),da1), %step1 has occurred
-		L2_N(sent(int(a),net(a), m1))
-		),
+		L2_E(sent(uc,ds,dropbox_url),da2)
+	),
 step2).
 
-formula(implies(L2_N(sent(int(a), net(a), m1)), %step2 has occurred
+formula(
+	implies(
+		L2_E(sent(uc,ds,dropbox_url),da2),
 		and(
-			L1_E(sent(net(a),net(b),m1),dy),
-			L1_B(sent(net(a),net(b),m1),dy),
-			L1_S(sent(net(a),net(b),m1),dy),
-			L1_I(sent(net(a),net(b),m1),dy),
-			L1_C(sent(net(a),net(b),m1),dy),
-			L1_R(sent(net(a),net(b),m1),dy),
-			L1_F(sent(net(a),net(b),m1),dy)
+			L1_E(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_B(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_S(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_I(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_C(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_O(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_F(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy)
 		)
 	),
 step3).
 
-
-formula(implies(
+formula(
+	implies(
 		and(
-			L1_E(sent(net(a),net(b),m1),dy),
-			L1_B(sent(net(a),net(b),m1),dy),
-			L1_S(sent(net(a),net(b),m1),dy),
-			L1_I(sent(net(a),net(b),m1),dy),
-			L1_C(sent(net(a),net(b),m1),dy),
-			L1_R(sent(net(a),net(b),m1),dy),
-			L1_F(sent(net(a),net(b),m1),dy)
-		), %step 3 has occurred
+			L1_E(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_B(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_S(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_I(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_C(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_O(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy),
+			L1_F(sent(uc,ds,encr(dropbox_url,public_dropbox)),dy)
+		),
 		and(
-			L1_E(sent(net(b),net(a),m2),dy),
-			L1_B(sent(net(b),net(a),m2),dy),
-			L1_S(sent(net(b),net(a),m2),dy),
-			L1_I(sent(net(b),net(a),m2),dy),
-			L1_C(sent(net(b),net(a),m2),dy),
-			L1_R(sent(net(b),net(a),m2),dy),
-			L1_F(sent(net(b),net(a),m2),dy)
+			L1_E(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_B(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_S(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_I(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_C(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_O(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_F(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy)
 		)
 	),
 step4).
 
-
-formula(implies(
+formula(
+	implies(
 		and(
-			L1_E(sent(net(b),net(a),m2),dy),
-			L1_B(sent(net(b),net(a),m2),dy),
-			L1_S(sent(net(b),net(a),m2),dy),
-			L1_I(sent(net(b),net(a),m2),dy),
-			L1_C(sent(net(b),net(a),m2),dy),
-			L1_R(sent(net(b),net(a),m2),dy),
-			L1_F(sent(net(b),net(a),m2),dy)
-		), %step4 has occurred
-		L2_N(sent(net(a), int(a), m2))
+			L1_E(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_B(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_S(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_I(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_C(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_O(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy),
+			L1_F(sent(ds,uc,encr(dropbox_page,public_dropbox)),dy)
+		),
+		L2_E(sent(ds,uc,dropbox_page),da2)
 	),
 step5).
 
-
-formula(implies(
-		L2_N(sent(net(a), int(a), m2)), %step5 has occurred
-		L3_E(sent(int(a), a, m2),da1)
+formula(
+	implies(
+		L2_E(sent(ds,uc,dropbox_page),da2),
+		and(
+			L3_E(sent(ds,uc,dropbox_page),da1),
+			L3_B(sent(ds,uc,dropbox_page),da1)
+		)
 	),
 step6).
 
-formula(Agent(a),agent_A).
-formula(Agent(int(a)),agent_intA).
-formula(Agent(net(a)),agent_netA).
-formula(Agent(net(b)),agent_netB).
-formula(Agent(c),agent_C).
-formula(Agent(int(c)),agent_intC).
+formula(
+	implies(
+		and(
+			L3_E(sent(ds,uc,dropbox_page),da1),
+			L3_B(sent(ds,uc,dropbox_page),da1)
+		),
+		and(
+			L3_E(sent(uc,ds,sign_in),da1),
+			L3_B(sent(uc,ds,sign_in),da1)
+		)
+	),
+step7).
 
-formula(Message(m1),message_m1).
-formula(Message(m2),message_m2).
-formula(Message(m3),message_m3).
-formula(Message(m4),message_m4).
-formula(Message(m5),message_m5).
-formula(Message(m6),message_m6).
+formula(
+	implies(
+		and(
+			L3_E(sent(uc,ds,sign_in),da1),
+			L3_B(sent(uc,ds,sign_in),da1)
+		),
+		L2_E(sent(uc,ds,sign_in),da2)
+	),
+step8).
+
+formula(
+	implies(
+		L2_E(sent(uc,ds,sign_in),da2),
+		and(
+			L1_E(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_B(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_S(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_I(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_C(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_O(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_F(sent(uc,ds,encr(sign_in,public_dropbox)),dy)
+		)
+	),
+step9).
+
+formula(
+	implies(
+		and(
+			L1_E(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_B(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_S(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_I(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_C(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_O(sent(uc,ds,encr(sign_in,public_dropbox)),dy),
+			L1_F(sent(uc,ds,encr(sign_in,public_dropbox)),dy)
+		),
+		and(
+			L1_E(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_B(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_S(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_I(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_C(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_O(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_F(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy)
+		)
+	),
+step10).
+
+formula(
+	implies(
+		and(
+			L1_E(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_B(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_S(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_I(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_C(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_O(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy),
+			L1_F(sent(ds,uc,encr(sign_in_page,public_dropbox)),dy)
+		),
+		L2_E(sent(ds,uc,sign_in_page),da2)
+	),
+step11).
+
+formula(
+	implies(
+		L2_E(sent(ds,uc,sign_in_page),da2),
+		and(
+			L3_E(sent(ds,uc,sign_in_page),da1),
+			L3_B(sent(ds,uc,sign_in_page),da1)
+		)
+	),
+step12).
+
+formula(
+	implies(
+		and(
+			L3_E(sent(ds,uc,sign_in_page),da1),
+			L3_B(sent(ds,uc,sign_in_page),da1)
+		),
+		and(
+			L3_E(sent(uc,ds,pair(email,password)),da1),
+			L3_B(sent(uc,ds,pair(email,password)),da1)
+		)
+	),
+step13).
+
+formula(
+	implies(
+		and(
+			L3_E(sent(uc,ds,pair(email,password)),da1),
+			L3_B(sent(uc,ds,pair(email,password)),da1)
+		),
+		L2_E(sent(uc,ds,pair(email,password)),da2)
+	),
+step14).
+
+formula(
+	implies(
+		L2_E(sent(uc,ds,pair(email,password)),da2),
+		and(
+			L1_E(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_B(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_S(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_I(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_C(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_O(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_F(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy)
+		)
+	),
+step15).
+
+formula(
+	implies(
+		and(
+			L1_E(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_B(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_S(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_I(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_C(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_O(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy),
+			L1_F(sent(uc,ds,encr(pair(email,password),public_dropbox)),dy)
+		),
+		and(
+			L1_E(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_B(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_S(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_I(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_C(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_O(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_F(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy)
+		)
+	),
+step16).
+
+formula(
+	implies(
+		and(
+			L1_E(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_B(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_S(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_I(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_C(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_O(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy),
+			L1_F(sent(ds,uc,encr(2_step_verification,public_dropbox)),dy)
+		),
+		L2_E(sent(ds,uc,2_step_verification),da2)
+	),
+step17).
+
+formula(
+	implies(
+		L2_E(sent(ds,uc,2_step_verification),da2),
+		and(
+			L3_E(sent(ds,uc,2_step_verification),da1),
+			L3_B(sent(ds,uc,2_step_verification),da1)
+		)
+	),
+step18).
+
+formula(
+	implies(
+		and(
+			L3_E(sent(ds,uc,2_step_verification),da1),
+			L3_B(sent(ds,uc,2_step_verification),da1)
+		),
+		and(
+			L2_E(sent(ds,up,auth_code_msg),ma1),
+			L2_B(sent(ds,up,auth_code_msg),ma1),
+			L2_S(sent(ds,up,auth_code_msg),ma1),
+			L2_I(sent(ds,up,auth_code_msg),ma1),
+			L2_C(sent(ds,up,auth_code_msg),ma1),
+			L2_O(sent(ds,up,auth_code_msg),ma1),
+			L2_F(sent(ds,up,auth_code_msg),ma1),
+			L2_E(sent(ds,up,auth_code_msg),da3),
+			L2_B(sent(ds,up,auth_code_msg),da3),
+			L2_S(sent(ds,up,auth_code_msg),da3),
+			L2_I(sent(ds,up,auth_code_msg),da3),
+			L2_C(sent(ds,up,auth_code_msg),da3),
+			L2_O(sent(ds,up,auth_code_msg),da3),
+			L2_F(sent(ds,up,auth_code_msg),da3)
+		)
+	),
+step19).
+
+formula(
+	implies(
+		and(
+			L2_E(sent(ds,up,auth_code_msg),ma1),
+			L2_B(sent(ds,up,auth_code_msg),ma1),
+			L2_S(sent(ds,up,auth_code_msg),ma1),
+			L2_I(sent(ds,up,auth_code_msg),ma1),
+			L2_C(sent(ds,up,auth_code_msg),ma1),
+			L2_O(sent(ds,up,auth_code_msg),ma1),
+			L2_F(sent(ds,up,auth_code_msg),ma1),
+			L2_E(sent(ds,up,auth_code_msg),da3),
+			L2_B(sent(ds,up,auth_code_msg),da3),
+			L2_S(sent(ds,up,auth_code_msg),da3),
+			L2_I(sent(ds,up,auth_code_msg),da3),
+			L2_C(sent(ds,up,auth_code_msg),da3),
+			L2_O(sent(ds,up,auth_code_msg),da3),
+			L2_F(sent(ds,up,auth_code_msg),da3)
+		),
+		and(
+			L3_E(sent(ds,up,auth_code_msg),da1),
+			L3_B(sent(ds,up,auth_code_msg),da1)
+		)
+	),
+step20).
+
+formula(
+	implies(
+		and(
+			L3_E(sent(ds,up,auth_code_msg),da1),
+			L3_B(sent(ds,up,auth_code_msg),da1)
+		),
+		and(
+			L3_E(sent(uc,ds,auth_code),da1),
+			L3_B(sent(uc,ds,auth_code),da1)
+		)
+	),
+step21).
+
+formula(
+	implies(
+		and(
+			L3_E(sent(uc,ds,auth_code),da1),
+			L3_B(sent(uc,ds,auth_code),da1)
+		),
+		L2_E(sent(uc,ds,auth_code),da2)
+	),
+step22).
+
+formula(
+	implies(
+		L2_E(sent(uc,ds,auth_code),da2),
+		and(
+			L1_E(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_B(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_S(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_I(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_C(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_O(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_F(sent(uc,ds,encr(auth_code,public_dropbox)),dy)
+		)
+	),
+step23).
+
+formula(
+	implies(
+		and(
+			L1_E(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_B(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_S(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_I(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_C(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_O(sent(uc,ds,encr(auth_code,public_dropbox)),dy),
+			L1_F(sent(uc,ds,encr(auth_code,public_dropbox)),dy)
+		),
+		and(
+			L1_E(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_B(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_S(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_I(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_C(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_O(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_F(sent(ds,uc,encr(user_page,public_dropbox)),dy)
+		)
+	),
+step24).
+
+formula(
+	implies(
+		and(
+			L1_E(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_B(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_S(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_I(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_C(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_O(sent(ds,uc,encr(user_page,public_dropbox)),dy),
+			L1_F(sent(ds,uc,encr(user_page,public_dropbox)),dy)
+		),
+		L2_E(sent(ds,uc,user_page),da2)
+	),
+step25).
+
+formula(
+	implies(
+		L2_E(sent(ds,uc,user_page),da2),
+		and(
+			L3_E(sent(ds,uc,user_page),da1),
+			L3_B(sent(ds,uc,user_page),da1)
+		)
+	),
+step26).
 
 
-formula(Attacker(dy),Attacker_dy).
-formula(DY(dy),DY_dy).
 
-formula(Attacker(da1),Attacker_da1).
-formula(DA(da1),DA_da1).
 
-formula(Attacker(da2),Attacker_da2).
-formula(DA(da2),DA_da2).
-
-formula (Knows(dy,m2), dy_spoofs).
-
-formula(Knows(a,pair(m3,m4)),Formula_Pair).
-
-formula(L3_N(sent(a,int(a),m3)),Formula_Safe).
-
-formula(L1_B(sent(net(a),net(b),m3),dy),Formula_Block).
-
-formula(L1_I(sent(dy,net(b),m4),dy),Formula_Initiate).
-
-formula (Knows(dy,m4), dy_initiates).
-
-formula(L3_C(sent(c,int(c),encr(m6,key)),da2), Formula_Crypto).
-
-formula(Knows(da2,key),da_knows_key).
-
-formula(Function(hash(m5)),Function_hash).
-
-formula(L1_F(sent(net(a),net(b),m5),dy), Formula_Fabricate).
-
+%formula(Function(hash(encr(2_step_verification,public_dropbox)))).
 
 end_of_list.
 
 
 list_of_formulae(conjectures).
 
+%DY SET
+%formula(KnowsEncr(dy,encr(pair(email,password),public_dropbox)),dy1). %-OK PROOF
+%formula(KnowsPair(dy,pair(email,password)),dy2). %-OK completion
+%formula(KnowsEncr(dy,encr(auth_code,public_dropbox)),dy3). %-OK PROOF
+%formula(Knows(dy,auth_code),dy4). %-OK  completion
 
+%MA SET
+%formula(KnowsEncr(ma1,encr(pair(email,password),public_dropbox)),ma1_1). %-OK completion
+%formula(KnowsPair(ma1,pair(email,password)),ma1_2). %-OK completion
+%formula(Knows(ma1,auth_code_msg),ma1_3). %-OK  PROOF
+
+%DA3 SET
+%formula(KnowsEncr(da3,encr(pair(email,password),public_dropbox)),da3_1). %-OK completion
+%formula(KnowsPair(da3,pair(email,password)),da3_2). %-OK completion
+%formula(Knows(da3,auth_code_msg),da3_3). %-OK  PROOF
+
+%DA2 SET
+%formula(KnowsPair(da2,pair(email,password)),da2_1). %-OK PROOF
+%formula(Knows(da2,auth_code_msg),da2_2). %-OK completion
+
+%DA1 SET
+%formula(KnowsPair(da1,pair(email,password)),da1_2). %-OK PROOF
+%formula(Knows(da1,auth_code_msg),da1_2). %-OK  PROOF
+
+
+%relevant tests:
+%formula(Knows(da1,dropbox_url), Eavesdrop_test). %-OK PROOF
+%formula(L1_WasBlocked(uc,encr(2_step_verification,public_dropbox),dy),Block_test). %-OK PROOF
+%formula(Knows(dy,hash(encr(2_step_verification,public_dropbox))), Fabricate_test). %-OK PROOF
+%formula(Knows(uc,hash(encr(2_step_verification,public_dropbox))), Initiate_test). %-OK  PROOF
 %formula(
-%	Knows(dy,hash(m5)),
-%Test_Fabricate).
-%OK
-
-
-%formula(
-%	Knows(da2,m6),
-%Test_Crypto).
-%OK
-
-
-%formula(
-%	and(
-%		Knows(net(b),m4),
-%		Initiator(dy,m4)
-%	),
-%Test_Initiate).
-%OK
-
-
-%formula(
-%	WasBlocked(net(b),m3),
-%Test_Block).
-%OK
-
-
-%formula(
-%	Knows(dy,m3),
-%Test2_Block).
-%OK
-
-
-%formula(
-%	and(
-%		Knows(da1,m3),
-%		Knows(dy,m3)
-%	),
-%Test_Safe).
-%OK - [NAO TEM COMO AFIRMAR]
-
-
-%formula(
-%	and(
-%		not(Knows(da1,m3)),
-%		not(Knows(dy,m3))
-%	),
-%Test2_Safe).
-%OK - [NAO TEM COMO AFIRMAR]
-
-
-%formula(
-%	Knows(dy,m1),
-%Test_Eavesdrop_DY).
-%OK - comentei Eavesdrop
-
-
-%formula(
-%	not(Knows(dy,m1)),
-%Test2_Eavesdrop_DY).
-%OK - comentei Eavesdrop [NAO TEM COMO AFIRMAR]
-
-
-%formula(
-%	Knows(net(a),m2),
-%Test_Spoof_DY).
-%OK!
-
-
-%formula(
-%	NotSpoofed(m1),
-%Test_Not_Spoofed).
-%OK!
-
-
-%formula(
-%	Knows(a,pair(m1,m2)),
-%Test_Concatenate).
-%OK!
-
-
-%formula(
-%	and(
-%		Knows(a,m3),
-%		Knows(a,m4)
-%	),
-%Test_Deconcatenate).
-%OK!
-
-
-%formula(
-%	and(
-%		Knows(int(a),m1),
-%		Knows(net(a),m1),
-%		Knows(net(b),m1),
-%		Knows(dy,m1),
-%		Knows(da1,m1),
-%		Knows(dy,m2),
-%		Knows(int(a),m2),
-%		Knows(net(a),m2),
-%		Knows(net(b),m2),
-%		Knows(da1,m2),
-%		Knows(a,m2)
-%	),
-%Test_Knows).
-%OK!
-
+%    and(
+%        L1_Sender(dy,uc,hash(encr(2_step_verification,public_dropbox))),
+%        L1_S(sent(ds,uc,hash(encr(2_step_verification,public_dropbox))),dy)
+%        ),
+%Spoof_test).  %OK - YAY! PROOF
 
 end_of_list.
 
 end_problem.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
